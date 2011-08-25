@@ -142,7 +142,7 @@ key_press_cb (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 static void
 vnr_prefs_set_default(VnrPrefs *prefs)
 {
-    prefs->zoom = VNR_PREFS_ZOOM_SMART;
+    prefs->zoom = VNR_PREFS_ZOOM_FIT;
     prefs->show_hidden = FALSE;
     prefs->fit_on_fullscreen = TRUE;
     prefs->smooth_images = TRUE;
@@ -244,7 +244,7 @@ build_dialog (VnrPrefs *prefs)
     zoom_mode_box = GTK_BOX (gtk_builder_get_object (builder, "zoom_mode_box"));
 
     zoom_mode = (GtkComboBox*) gtk_combo_box_new_text();
-    gtk_combo_box_append_text(zoom_mode, _("Smart Mode"));
+    /* gtk_combo_box_append_text(zoom_mode, _("Smart Mode")); */
     gtk_combo_box_append_text(zoom_mode, _("1:1 Mode"));
     gtk_combo_box_append_text(zoom_mode, _("Fit To Window Mode"));
     gtk_combo_box_append_text(zoom_mode, _("Last Used Mode"));

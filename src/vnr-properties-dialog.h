@@ -25,7 +25,7 @@
 #include <gtk/gtk.h>
 #include <gio/gio.h>
 #include <gdk/gdkkeysyms.h>
-#include "uni-image-view.h"
+#include <gtkimageview/gtkimageview.h>
 #include "vnr-window.h"
 
 G_BEGIN_DECLS

@@ -274,7 +274,7 @@ vnr_properties_dialog_update_image(VnrPropertiesDialog *dialog)
 {
     gchar *width_str, *height_str;
 
-    set_new_pixbuf(dialog, uni_image_view_get_pixbuf(UNI_IMAGE_VIEW(dialog->vnr_win->view)));
+    set_new_pixbuf(dialog, gtk_image_view_get_pixbuf(GTK_IMAGE_VIEW(dialog->vnr_win->view)));
     gtk_image_set_from_pixbuf (GTK_IMAGE(dialog->image) , dialog->thumbnail);
 
     width_str = g_strdup_printf("%i px", dialog->vnr_win->current_image_width);

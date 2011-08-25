@@ -34,6 +34,9 @@ typedef struct _VnrCropClass VnrCropClass;
 #define VNR_IS_CROP(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), VNR_TYPE_CROP))
 #define VNR_IS_CROP_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass),  VNR_TYPE_CROP))
 #define VNR_CROP_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj),  VNR_TYPE_CROP, VnrCropClass))
+#define CHECK_SIZE  8
+#define CHECK_LIGHT 0x00cccccc
+#define CHECK_DARK  0x00808080
 
 struct _VnrCrop {
     GObject parent;

@@ -30,8 +30,8 @@
 #endif /* HAVE_WALLPAPER */
 #include <errno.h>
 #include "vnr-window.h"
-#include "uni-scroll-win.h"
-#include "uni-anim-view.h"
+#include <gtkimageview/gtkimagescrollwin.h>
+#include <gtkimageview/gtkanimview.h>
 #include "vnr-tools.h"
 #include "vnr-file.h"
 #include "vnr-message-area.h"
@@ -53,7 +53,7 @@ static void leave_fs_cb (GtkButton *button, VnrWindow *window);
 static void toggle_show_next_cb (GtkToggleButton *togglebutton, VnrWindow *window);
 static void spin_value_change_cb (GtkSpinButton *spinbutton, VnrWindow *window);
 static void save_image_cb (GtkWidget *widget, VnrWindow *window);
-static void zoom_changed_cb (UniImageView *view, VnrWindow *window);
+static void zoom_changed_cb (GtkImageView *view, VnrWindow *window);
 static gboolean fullscreen_timeout_cb (VnrWindow *window);
 static gboolean leave_image_area_cb(GtkWidget * widget, GdkEventCrossing * ev, VnrWindow *window);
 static gboolean fullscreen_motion_cb(GtkWidget * widget, GdkEventMotion * ev, VnrWindow *window);
@@ -433,8 +433,8 @@ get_fs_controls(VnrWindow *window)
 static gboolean
 scrollbars_visible (VnrWindow *window)
 {
-    if (!gtk_widget_get_visible (GTK_WIDGET (UNI_SCROLL_WIN(window->scroll_view)->hscroll)) &&
-        !gtk_widget_get_visible (GTK_WIDGET (UNI_SCROLL_WIN(window->scroll_view)->vscroll)))
+    if (!gtk_widget_get_visible (GTK_WIDGET (GTK_IMAGE_SCROLL_WIN(window->scroll_view)->hscroll)) &&
+        !gtk_widget_get_visible (GTK_WIDGET (GTK_IMAGE_SCROLL_WIN(window->scroll_view)->vscroll)))
         return FALSE;
 
     return TRUE;
@@ -469,8 +469,8 @@ vnr_window_fullscreen(VnrWindow *window)
     gtk_widget_modify_bg(window->view, GTK_STATE_NORMAL, &color);
 
     if (window->prefs->fit_on_fullscreen)
-        uni_image_view_set_zoom_mode (UNI_IMAGE_VIEW(window->view),
-                                      VNR_PREFS_ZOOM_FIT);
+        gtk_image_view_set_fitting (GTK_IMAGE_VIEW(window->view),
+                                      TRUE);
 
     update_fs_filename_label(window);
     gtk_widget_hide (window->toolbar);
@@ -479,8 +479,8 @@ vnr_window_fullscreen(VnrWindow *window)
     stop_slideshow(window);
 
     /* Reset timeouts for the toolbar autohide when the mouse
-     * moves over the UniImageviewer.
-     * "after" because it must be called after the uniImageView's
+     * moves over the GtkImageviewer.
+     * "after" because it must be called after the gtkImageView's
      * callback (when the image is dragged).*/
     g_signal_connect_after (window->view,
                             "motion-notify-event",
@@ -521,7 +521,7 @@ vnr_window_unfullscreen(VnrWindow *window)
     gtk_widget_modify_bg(window->view, GTK_STATE_NORMAL, NULL);
 
     if (window->prefs->fit_on_fullscreen)
-        uni_image_view_set_zoom_mode (UNI_IMAGE_VIEW(window->view),
+        gtk_image_view_set_fitting (GTK_IMAGE_VIEW(window->view),
                                       window->prefs->zoom);
 
     gtk_widget_hide (window->fs_controls);
@@ -634,6 +634,37 @@ deny_slideshow(VnrWindow *window)
     gtk_widget_set_sensitive(window->toggle_btn, FALSE);
 }
 
+/* No conversion from GdkPixbuf to GdkPixbufAnim can be made
+ * directly using the current API, so this makes a static
+ * GdkPixbufAnimation and updates the UniAnimView */
+void
+gtk_anim_view_set_static (GtkAnimView * aview, GdkPixbuf * pixbuf)
+{
+    GdkPixbufSimpleAnim *s_anim;
+
+    s_anim = gdk_pixbuf_simple_anim_new (gdk_pixbuf_get_width(pixbuf),
+                                         gdk_pixbuf_get_height(pixbuf),
+                                         -1);
+    gdk_pixbuf_simple_anim_add_frame(s_anim, pixbuf);
+
+    /* Simple version of uni_anim_view_set_anim */
+    if (aview->anim)
+        g_object_unref (aview->anim);
+
+    aview->anim = (GdkPixbufAnimation*)s_anim;
+
+    g_object_ref (aview->anim);
+    if (aview->iter)
+        g_object_unref (aview->iter);
+
+    gtk_image_view_set_pixbuf (GTK_IMAGE_VIEW (aview), pixbuf, TRUE);
+    gtk_anim_view_set_is_playing (aview, FALSE);
+    aview->delay = -1;
+    aview->iter = NULL;
+
+    g_object_unref(pixbuf);
+}
+
 static void
 rotate_pixbuf(VnrWindow *window, GdkPixbufRotation angle)
 {
@@ -648,7 +679,7 @@ rotate_pixbuf(VnrWindow *window, GdkPixbufRotation angle)
 	/* Stop slideshow while editing the image */
 	stop_slideshow(window);
 	
-    result = gdk_pixbuf_rotate_simple(UNI_IMAGE_VIEW(window->view)->pixbuf,
+    result = gdk_pixbuf_rotate_simple(GTK_IMAGE_VIEW(window->view)->pixbuf,
                                       angle);
 
     if(result == NULL)
@@ -659,7 +690,7 @@ rotate_pixbuf(VnrWindow *window, GdkPixbufRotation angle)
         return;
     }
 
-    uni_anim_view_set_static(UNI_ANIM_VIEW(window->view), result);
+    gtk_anim_view_set_static(GTK_ANIM_VIEW(window->view), result);
 
     if(!window->cursor_is_hidden)
         gdk_window_set_cursor(GTK_WIDGET(window)->window,
@@ -711,7 +742,7 @@ flip_pixbuf(VnrWindow *window, gboolean horizontal)
     /* This makes the cursor show NOW */
     gdk_flush();
 
-    result = gdk_pixbuf_flip(UNI_IMAGE_VIEW(window->view)->pixbuf,
+    result = gdk_pixbuf_flip(GTK_IMAGE_VIEW(window->view)->pixbuf,
                              horizontal);
 
     if(result == NULL)
@@ -722,7 +753,7 @@ flip_pixbuf(VnrWindow *window, gboolean horizontal)
         return;
     }
 
-    uni_anim_view_set_static(UNI_ANIM_VIEW(window->view), result);
+    gtk_anim_view_set_static(GTK_ANIM_VIEW(window->view), result);
 
     if(gtk_widget_get_visible(window->props_dlg))
         vnr_properties_dialog_update_image(VNR_PROPERTIES_DIALOG(window->props_dlg));
@@ -795,7 +826,7 @@ fullscreen_motion_cb(GtkWidget * widget, GdkEventMotion * ev, VnrWindow *window)
         return FALSE;
 
     /* Show the toolbar only when the moves moves to the top
-     * of the UniImageView */
+     * of the GtkImageView */
     if (ev->y < 20 && !gtk_widget_get_visible (window->toolbar))
         gtk_widget_show (GTK_WIDGET (window->toolbar));
 
@@ -863,7 +894,7 @@ save_image_cb (GtkWidget *widget, VnrWindow *window)
         gchar *quality;
         quality = g_strdup_printf ("%i", window->prefs->jpeg_quality);
 
-        gdk_pixbuf_save (uni_image_view_get_pixbuf(UNI_IMAGE_VIEW(window->view)),
+        gdk_pixbuf_save (gtk_image_view_get_pixbuf(GTK_IMAGE_VIEW(window->view)),
                          VNR_FILE(window->file_list->data)->path, "jpeg",
                          &error, "quality", quality, NULL);
         g_free(quality);
@@ -873,14 +904,14 @@ save_image_cb (GtkWidget *widget, VnrWindow *window)
         gchar *compression;
         compression = g_strdup_printf ("%i", window->prefs->png_compression);
 
-        gdk_pixbuf_save (uni_image_view_get_pixbuf(UNI_IMAGE_VIEW(window->view)),
+        gdk_pixbuf_save (gtk_image_view_get_pixbuf(GTK_IMAGE_VIEW(window->view)),
                          VNR_FILE(window->file_list->data)->path, "png",
                          &error, "compression", compression, NULL);
         g_free(compression);
     }
     else
     {
-        gdk_pixbuf_save (uni_image_view_get_pixbuf(UNI_IMAGE_VIEW(window->view)),
+        gdk_pixbuf_save (gtk_image_view_get_pixbuf(GTK_IMAGE_VIEW(window->view)),
                          VNR_FILE(window->file_list->data)->path,
                          window->writable_format_name, &error, NULL);
     }
@@ -906,7 +937,7 @@ save_image_cb (GtkWidget *widget, VnrWindow *window)
     gtk_action_group_set_sensitive(window->action_save, FALSE);
 
     if(window->prefs->behavior_modify != VNR_PREFS_MODIFY_ASK)
-        zoom_changed_cb(UNI_IMAGE_VIEW(window->view), window);
+        zoom_changed_cb(GTK_IMAGE_VIEW(window->view), window);
 
     if(gtk_widget_get_visible(window->props_dlg))
         vnr_properties_dialog_update(VNR_PROPERTIES_DIALOG(window->props_dlg));
@@ -968,7 +999,7 @@ window_change_state_cb (GtkWidget * widget, GdkEventWindowState * event, gpointe
 }
 
 static void
-zoom_changed_cb (UniImageView *view, VnrWindow *window)
+zoom_changed_cb (GtkImageView *view, VnrWindow *window)
 {
     gint position, total;
     char *buf = NULL;
@@ -1062,26 +1093,26 @@ vnr_window_cmd_rotate_ccw(GtkAction *action, gpointer user_data)
 static void
 vnr_window_cmd_zoom_in (GtkAction *action, gpointer user_data)
 {
-    uni_image_view_zoom_in(UNI_IMAGE_VIEW(VNR_WINDOW(user_data)->view));
+    gtk_image_view_zoom_in(GTK_IMAGE_VIEW(VNR_WINDOW(user_data)->view));
 }
 
 static void
 vnr_window_cmd_zoom_out (GtkAction *action, gpointer user_data)
 {
-    uni_image_view_zoom_out(UNI_IMAGE_VIEW(VNR_WINDOW(user_data)->view));
+    gtk_image_view_zoom_out(GTK_IMAGE_VIEW(VNR_WINDOW(user_data)->view));
 }
 
 static void
 vnr_window_cmd_normal_size (GtkAction *action, gpointer user_data)
 {
-    uni_image_view_set_zoom(UNI_IMAGE_VIEW(VNR_WINDOW(user_data)->view), 1);
-    uni_image_view_set_fitting(UNI_IMAGE_VIEW(VNR_WINDOW(user_data)->view), UNI_FITTING_NONE);
+    gtk_image_view_set_zoom(GTK_IMAGE_VIEW(VNR_WINDOW(user_data)->view), 1);
+    gtk_image_view_set_fitting(GTK_IMAGE_VIEW(VNR_WINDOW(user_data)->view), FALSE);
 }
 
 static void
 vnr_window_cmd_fit (GtkAction *action, gpointer user_data)
 {
-    uni_image_view_set_fitting(UNI_IMAGE_VIEW(VNR_WINDOW(user_data)->view), UNI_FITTING_FULL);
+    gtk_image_view_set_fitting(GTK_IMAGE_VIEW(VNR_WINDOW(user_data)->view), TRUE);
 }
 
 static void
@@ -1456,7 +1487,7 @@ vnr_window_cmd_crop(GtkAction *action, VnrWindow *window)
     GdkPixbuf *cropped;
     GdkPixbuf *original;
 
-    original = uni_image_view_get_pixbuf(UNI_IMAGE_VIEW(window->view));
+    original = gtk_image_view_get_pixbuf(GTK_IMAGE_VIEW(window->view));
 
     cropped = gdk_pixbuf_new (gdk_pixbuf_get_colorspace (original),
                                gdk_pixbuf_get_has_alpha (original),
@@ -1466,7 +1497,7 @@ vnr_window_cmd_crop(GtkAction *action, VnrWindow *window)
     gdk_pixbuf_copy_area((const GdkPixbuf*)original, crop->area.x, crop->area.y,
                          crop->area.width, crop->area.height, cropped, 0, 0);
 
-    uni_anim_view_set_static(UNI_ANIM_VIEW(window->view), cropped);
+    gtk_anim_view_set_static(GTK_ANIM_VIEW(window->view), cropped);
 
     g_object_unref(cropped);
 
@@ -1980,9 +2011,9 @@ vnr_window_init (VnrWindow * window)
     gtk_box_pack_start (GTK_BOX (window->layout), window->msg_area, FALSE,FALSE,0);
     gtk_widget_show(GTK_WIDGET (window->msg_area));
 
-    window->view = uni_anim_view_new ();
+    window->view = gtk_anim_view_new ();
     gtk_widget_set_can_focus(window->view, TRUE);
-    window->scroll_view = uni_scroll_win_new (UNI_IMAGE_VIEW (window->view));
+    window->scroll_view = gtk_image_scroll_win_new (GTK_IMAGE_VIEW (window->view));
     gtk_box_pack_end (GTK_BOX (window->layout), window->scroll_view, TRUE,TRUE,0);
     gtk_widget_show_all(GTK_WIDGET (window->scroll_view));
 
@@ -2029,7 +2060,7 @@ vnr_window_open (VnrWindow * window, gboolean fit_to_screen)
     VnrFile *file;
     GdkPixbufAnimation *pixbuf;
     GdkPixbufFormat *format;
-    UniFittingMode last_fit_mode;
+    gboolean last_fit_mode;
     GError *error = NULL;
 
     if(window->file_list == NULL)
@@ -2086,26 +2117,27 @@ vnr_window_open (VnrWindow * window, gboolean fit_to_screen)
         gtk_window_resize (GTK_WINDOW (window), img_w, img_h + window->menus->allocation.height);
     }
     
-    last_fit_mode = UNI_IMAGE_VIEW(window->view)->fitting;
+    last_fit_mode = GTK_IMAGE_VIEW(window->view)->fitting;
     
+    gtk_anim_view_set_anim (GTK_ANIM_VIEW (window->view), pixbuf);
     /* Return TRUE if the image is static */
-    if ( uni_anim_view_set_anim (UNI_ANIM_VIEW (window->view), pixbuf) )
+    if (gdk_pixbuf_animation_is_static_image (pixbuf))
         gtk_action_group_set_sensitive(window->actions_static_image, TRUE);
     else
         gtk_action_group_set_sensitive(window->actions_static_image, FALSE);
 
     if(window->mode != VNR_WINDOW_MODE_NORMAL && window->prefs->fit_on_fullscreen) 
     {
-		uni_image_view_set_zoom_mode (UNI_IMAGE_VIEW(window->view), VNR_PREFS_ZOOM_FIT);
+		gtk_image_view_set_fitting (GTK_IMAGE_VIEW(window->view), TRUE);
     } 
     else if(window->prefs->zoom == VNR_PREFS_ZOOM_LAST_USED )
     {
-		uni_image_view_set_fitting (UNI_IMAGE_VIEW(window->view), last_fit_mode);
-		zoom_changed_cb(UNI_IMAGE_VIEW(window->view), window);
+		gtk_image_view_set_fitting (GTK_IMAGE_VIEW(window->view), last_fit_mode);
+		zoom_changed_cb(GTK_IMAGE_VIEW(window->view), window);
     }
     else
     {
-		uni_image_view_set_zoom_mode (UNI_IMAGE_VIEW(window->view), window->prefs->zoom);
+		gtk_image_view_set_fitting (GTK_IMAGE_VIEW(window->view), window->prefs->zoom);
     }
 	
 	if ( gtk_toggle_action_get_active(GTK_TOGGLE_ACTION(gtk_action_group_get_action(window->actions_image, "ViewResizeWindow"))) ) {
@@ -2183,7 +2215,7 @@ void
 vnr_window_close(VnrWindow *window)
 {
     gtk_window_set_title (GTK_WINDOW (window), "Viewnior");
-    uni_anim_view_set_anim (UNI_ANIM_VIEW (window->view), NULL);
+    gtk_anim_view_set_anim (GTK_ANIM_VIEW (window->view), NULL);
     gtk_action_group_set_sensitive(window->actions_image, FALSE);
 #ifdef HAVE_WALLPAPER
     gtk_action_group_set_sensitive(window->action_wallpaper, FALSE);
@@ -2343,14 +2375,14 @@ vnr_window_last (VnrWindow *window){
 void
 vnr_window_apply_preferences (VnrWindow *window)
 {
-    if(window->prefs->smooth_images && UNI_IMAGE_VIEW(window->view)->interp != GDK_INTERP_BILINEAR)
+    if(window->prefs->smooth_images && GTK_IMAGE_VIEW(window->view)->interp != GDK_INTERP_BILINEAR)
     {
-        UNI_IMAGE_VIEW(window->view)->interp = GDK_INTERP_BILINEAR;
+        GTK_IMAGE_VIEW(window->view)->interp = GDK_INTERP_BILINEAR;
         gtk_widget_queue_draw(window->view);
     }
-    else if(!window->prefs->smooth_images && UNI_IMAGE_VIEW(window->view)->interp != GDK_INTERP_NEAREST)
+    else if(!window->prefs->smooth_images && GTK_IMAGE_VIEW(window->view)->interp != GDK_INTERP_NEAREST)
     {
-        UNI_IMAGE_VIEW(window->view)->interp = GDK_INTERP_NEAREST;
+        GTK_IMAGE_VIEW(window->view)->interp = GDK_INTERP_NEAREST;
         gtk_widget_queue_draw(window->view);
     }
 

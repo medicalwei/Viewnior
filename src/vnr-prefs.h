@@ -38,7 +38,7 @@ typedef struct _VnrPrefsClass VnrPrefsClass;
 #define VNR_PREFS_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj),  VNR_TYPE_PREFS, VnrPrefsClass))
 
 typedef enum{
-    VNR_PREFS_ZOOM_SMART,
+/*    VNR_PREFS_ZOOM_SMART, */
     VNR_PREFS_ZOOM_NORMAL,
     VNR_PREFS_ZOOM_FIT,
     VNR_PREFS_ZOOM_LAST_USED,

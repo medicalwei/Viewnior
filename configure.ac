@@ -49,13 +49,15 @@ GLIB_REQUIRED=2.24
 GCONF_REQUIRED=2.22.0
 SHARED_MIME_INFO_REQUIRED=0.20
 GDKPIXBUF_REQUIRED=2.4.0
+GTKIMAGEVIEW_REQUIRED=1.6
 
 
 VNR_MODULES="gtk+-2.0 >= $GTK_REQUIRED \
              glib-2.0 >= $GLIB_REQUIRED \
              gio-2.0 >= $GLIB_REQUIRED \
              shared-mime-info >= $SHARED_MIME_INFO_REQUIRED \
-             gdk-pixbuf-2.0 >= $GDKPIXBUF_REQUIRED"
+             gdk-pixbuf-2.0 >= $GDKPIXBUF_REQUIRED \
+	     gtkimageview >= $GTKIMAGEVIEW_REQUIRED"
 
 # ******
 # Wallpaper support

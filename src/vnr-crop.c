@@ -19,8 +19,8 @@
 
 #include "vnr-crop.h"
 #include "vnr-tools.h"
-#include "uni-utils.h"
-#include "uni-image-view.h"
+#include <gtkimageview/utils.h>
+#include <gtkimageview/gtkimageview.h>
 
 #define CROP_UI_PATH PACKAGE_DATA_DIR"/viewnior/vnr-crop-dialog.ui"
 
@@ -115,7 +115,7 @@ vnr_crop_build_dialog (VnrCrop *crop)
     window = GTK_WIDGET (gtk_builder_get_object (builder, "crop-dialog"));
     gtk_window_set_transient_for(GTK_WINDOW(window), GTK_WINDOW(crop->vnr_win));
 
-    original = uni_image_view_get_pixbuf(UNI_IMAGE_VIEW(crop->vnr_win->view));
+    original = gtk_image_view_get_pixbuf(GTK_IMAGE_VIEW(crop->vnr_win->view));
 
     gdouble width, height;
 
@@ -133,8 +133,8 @@ vnr_crop_build_dialog (VnrCrop *crop)
                              gdk_pixbuf_get_bits_per_sample (original),
                              width, height);
 
-    uni_pixbuf_scale_blend(original, preview, 0, 0, width, height, 0, 0,
-                           crop->zoom, GDK_INTERP_BILINEAR, 0, 0);
+    gdk_pixbuf_scale_blend(original, preview, 0, 0, width, height, 0, 0,
+                           crop->zoom, GDK_INTERP_BILINEAR, 0, 0, CHECK_SIZE, CHECK_LIGHT, CHECK_DARK);
     crop->preview_pixbuf = preview;
 
     crop->image = GTK_WIDGET (gtk_builder_get_object (builder, "main-image"));
